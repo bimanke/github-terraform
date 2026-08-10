@@ -23,14 +23,17 @@ jobs:
 
       - name: Install TFLint
         run: |
-          sudo apt-get update
-          sudo apt-get install -y tflint 
+          curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          sudo mv tflint /usr/local/bin
 
       - name: TFLint
         run: tflint
 
-      - name: Manual Validation
-        run: echo "Please verify manually before applying."
-
       - name: Terraform Plan
         run: terraform plan
+
+      - name: Manual Validation
+        run: echo "Please verify the plan manually before applying."
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
