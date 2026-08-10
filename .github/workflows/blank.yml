@@ -8,12 +8,14 @@ on:
 jobs:
   terraform-plan:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: dev   # 👈 यहाँ folder change
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Change directory to dev
-        run: cd dev
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -24,27 +26,28 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-    
-
       - name: Terraform Plan
         run: terraform plan
 
-  terraform-validate-manual:
+  manual-approval:
     runs-on: ubuntu-latest
     needs: terraform-plan
+
     steps:
-      - name: Manual Validation
-        run: echo "Please verify the plan manually before applying."
+      - name: Manual Approval
+        run: echo "Approve in UI before apply"
 
   terraform-apply:
     runs-on: ubuntu-latest
-    needs: terraform-validate-manual
+    needs: manual-approval
+
+    defaults:
+      run:
+        working-directory: dev   # 👈 SAME here also
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Change directory to dev
-        run: cd dev
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
