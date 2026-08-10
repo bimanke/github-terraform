@@ -1,0 +1,53 @@
+name: Terraform Workflow
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Change directory to dev
+        run: cd dev
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+
+
+      - name: Terraform Plan
+        run: terraform plan
+
+  terraform-validate-manual:
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    steps:
+      - name: Manual Validation
+        run: echo "Please verify the plan manually before applying."
+
+  terraform-apply:
+    runs-on: ubuntu-latest
+    needs: terraform-validate-manual
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Change directory to dev
+        run: cd dev
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
