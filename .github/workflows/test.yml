@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  terraform:
+  terraform-plan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,13 +24,36 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      
+      - name: Install TFLint
+        run: |
+          curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          sudo mv /tmp/tflint /usr/local/bin/tflint
+
+      - name: TFLint
+        run: tflint
 
       - name: Terraform Plan
         run: terraform plan
 
+  terraform-validate-manual:
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    steps:
       - name: Manual Validation
         run: echo "Please verify the plan manually before applying."
+
+  terraform-apply:
+    runs-on: ubuntu-latest
+    needs: terraform-validate-manual
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Change directory to dev
+        run: cd dev
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
