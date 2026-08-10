@@ -21,6 +21,11 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Install TFLint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tflint 
+
       - name: TFLint
         run: tflint
 
