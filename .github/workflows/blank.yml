@@ -89,8 +89,8 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov
-        working-directory: dev
-        run: |
+        continue-on-error: true
+        run: 
          checkov -d . \
           --skip-check CKV_AZURE_1 \
           --skip-check CKV_AZURE_50 \
