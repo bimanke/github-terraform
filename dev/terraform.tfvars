@@ -11,6 +11,11 @@ rgs = {
     rg_name  = "bipin3"
     location = "SouthAfricaNorth"
   }
+     branch = {
+    rg_name  = "newbranch"
+    location = "SouthAfricaNorth"
+  }
+  
 }
 
 
