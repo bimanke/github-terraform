@@ -12,6 +12,9 @@ permissions:
 
 jobs:
 
+  # ==========================================================
+  # JOB 1 - TERRAFORM INIT + VALIDATE
+  # ==========================================================
 
   terraform-init-validate:
     name: Terraform Init & Validate
@@ -48,10 +51,12 @@ jobs:
         run: terraform validate
 
 
-
+  # ==========================================================
+  # JOB 2 - TFLINT + TFSEC
+  # ==========================================================
 
   security-scan:
-    name: TFLint + tfsec + Checkov
+    name: TFLint + tfsec
     runs-on: ubuntu-latest
 
     needs: terraform-init-validate
@@ -61,7 +66,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-
+      # ------------------------------------------------------
+      # TFLINT
+      # ------------------------------------------------------
 
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v4
@@ -72,14 +79,20 @@ jobs:
           tflint --init
           tflint
 
+      # ------------------------------------------------------
+      # TFSEC
+      # ------------------------------------------------------
 
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: dev
 
-    
-    
+
+  # ==========================================================
+  # JOB 3 - TERRAFORM PLAN
+  # ==========================================================
+
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
@@ -128,7 +141,9 @@ jobs:
             dev/plan.json
 
 
-
+  # ==========================================================
+  # JOB 4 - PLAN VERIFICATION
+  # ==========================================================
 
   plan-verification:
     name: Verify Terraform Plan
@@ -164,6 +179,9 @@ jobs:
           ls -lh dev/plan.json
 
 
+  # ==========================================================
+  # JOB 5 - PYTHON DEPLOYMENT AGENT
+  # ==========================================================
 
   deployment-agent:
     name: Python Deployment Agent
@@ -176,14 +194,10 @@ jobs:
       actions: read
       deployments: write
 
-    environment:
-      name: production
-
     steps:
 
       - name: Checkout Code
         uses: actions/checkout@v4
-
 
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
@@ -191,17 +205,13 @@ jobs:
           name: terraform-plan
           path: dev
 
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-
       - name: Install Agent Dependencies
         run: pip install -r agent/requirements.txt
-
-  
 
       - name: Run Deployment Agent
         env:
@@ -211,6 +221,9 @@ jobs:
         run: python agent/agent.py
 
 
+  # ==========================================================
+  # JOB 6 - TERRAFORM APPLY
+  # ==========================================================
 
   terraform-apply:
     name: Terraform Apply
@@ -249,15 +262,12 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-----
 
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan
           path: dev
-
-
 
       - name: Verify Terraform Plan
         run: |
@@ -267,7 +277,6 @@ jobs:
           fi
 
           echo "Exact Terraform plan found."
-
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
