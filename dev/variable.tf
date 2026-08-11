@@ -18,7 +18,3 @@ variable "vms" {
     type = map(any)
   
 }
-variable "nsgs" {
-    type = map(any)
-  
-}
