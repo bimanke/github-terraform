@@ -11,6 +11,10 @@ rgs = {
     rg_name  = "bipin3"
     location = "SouthAfricaNorth"
   }
+    rg6 = {
+    rg_name  = "bipin4"
+    location = "SouthAfricaNorth"
+  }
 }
 
 
