@@ -10,6 +10,11 @@ permissions:
   contents: read
 
 jobs:
+
+  # ==========================================================
+  # JOB 1 - TERRAFORM SECURITY + PLAN
+  # ==========================================================
+
   terraform-plan:
     runs-on: ubuntu-latest
 
@@ -19,11 +24,23 @@ jobs:
 
     steps:
 
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # Terraform Setup
+      # --------------------------------------------------------
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
+      # --------------------------------------------------------
+      # Azure Login
+      # --------------------------------------------------------
 
       - name: Azure Login
         uses: azure/login@v3
@@ -37,21 +54,79 @@ jobs:
               "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
             }
 
+      # --------------------------------------------------------
+      # Terraform Init
+      # --------------------------------------------------------
+
       - name: Terraform Init
         run: terraform init
+
+      # --------------------------------------------------------
+      # Terraform Validate
+      # --------------------------------------------------------
 
       - name: Terraform Validate
         run: terraform validate
 
+      # ========================================================
+      # TFLINT
+      # ========================================================
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        run: |
+          tflint --init
+          tflint
+
+      # ========================================================
+      # TFSEC
+      # ========================================================
+
+      - name: Install tfsec
+        run: |
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+
+      - name: Run tfsec
+        run: tfsec .
+
+      # ========================================================
+      # CHECKOV
+      # ========================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Run Checkov
+        run: checkov -d .
+
+      # ========================================================
+      # TERRAFORM PLAN
+      # ========================================================
+
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
-      # Save the plan for Job 3
+      # --------------------------------------------------------
+      # Upload Plan
+      # --------------------------------------------------------
+
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
           path: dev/tfplan
+
+
+  # ==========================================================
+  # JOB 2 - MANUAL APPROVAL
+  # ==========================================================
 
   manual-validation:
     runs-on: ubuntu-latest
@@ -66,6 +141,11 @@ jobs:
       - name: Approval
         run: echo "Production deployment approved"
 
+
+  # ==========================================================
+  # JOB 3 - TERRAFORM APPLY
+  # ==========================================================
+
   terraform-apply:
     runs-on: ubuntu-latest
 
@@ -79,11 +159,23 @@ jobs:
 
     steps:
 
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # Terraform Setup
+      # --------------------------------------------------------
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
+      # --------------------------------------------------------
+      # Azure Login
+      # --------------------------------------------------------
 
       - name: Azure Login
         uses: azure/login@v3
@@ -97,17 +189,26 @@ jobs:
               "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
             }
 
-      # New runner needs Terraform initialization
+      # --------------------------------------------------------
+      # Terraform Init
+      # --------------------------------------------------------
+
       - name: Terraform Init
         run: terraform init
 
-      # Download exact plan generated in Job 1
+      # --------------------------------------------------------
+      # Download Exact Plan
+      # --------------------------------------------------------
+
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan
           path: dev
 
-      # Apply the exact plan
+      # --------------------------------------------------------
+      # Apply Exact Plan
+      # --------------------------------------------------------
+
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
