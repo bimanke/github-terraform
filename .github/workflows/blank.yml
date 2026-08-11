@@ -9,10 +9,6 @@ permissions:
   contents: read
 
 jobs:
-
-  # ==========================================
-  # JOB 1 - VALIDATE
-  # ==========================================
   terraform-validate:
     runs-on: ubuntu-latest
 
@@ -34,10 +30,6 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-
-  # ==========================================
-  # JOB 2 - PLAN
-  # ==========================================
   terraform-plan:
     runs-on: ubuntu-latest
 
@@ -75,11 +67,7 @@ jobs:
 
       - name: Terraform Plan
         run: terraform plan
-
-
-  # ==========================================
-  # JOB 3 - MANUAL APPROVAL
-  # ==========================================
+        
   manual-validation:
     runs-on: ubuntu-latest
 
@@ -93,10 +81,6 @@ jobs:
       - name: Approval
         run: echo "Production deployment approved"
 
-
-  # ==========================================
-  # JOB 4 - APPLY
-  # ==========================================
   terraform-apply:
     runs-on: ubuntu-latest
 
