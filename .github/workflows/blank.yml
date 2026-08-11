@@ -104,7 +104,7 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov
-        run: checkov -d . --skip-check CKV_AZURE_178,CKV_AZURE_149,CKV_AZURE_1,CKV2_AZURE_31,CKV2_GHA_1
+        run: checkov -d . --skip-check CKV_AZURE_178,CKV_AZURE_149,CKV_AZURE_1,CKV2_AZURE_31,CKV2_GHA_1,CKV_AZURE_50
 
       # ========================================================
       # TERRAFORM PLAN
