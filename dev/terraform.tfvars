@@ -110,19 +110,3 @@ vms = {
 }
 
 
-nsgs = {
-  nsg1 = {
-    nsg_name                   = "bipinnsg"
-    location                   = "SouthAfricaNorth"
-    resource_group_name        = "bipin1"
-    tets_name                  = "testbipin"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-}
