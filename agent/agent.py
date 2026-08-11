@@ -54,7 +54,7 @@ def review_deployment(environment_id, state, comment):
 
 
 def load_plan():
-    with open("plan.json", "r") as file:
+    with open("dev/plan.json", "r") as file:
         return json.load(file)
 
 
