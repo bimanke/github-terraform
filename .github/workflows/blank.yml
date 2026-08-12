@@ -13,11 +13,12 @@ permissions:
 jobs:
 
   # ==========================================================
-  # JOB 1 - TERRAFORM INIT + VALIDATE
+  # JOB 1 - TERRAFORM CI
+  # INIT + VALIDATE
   # ==========================================================
 
-  terraform-init-validate:
-    name: Terraform Init & Validate
+  terraform-ci:
+    name: Terraform CI
     runs-on: ubuntu-latest
 
     defaults:
@@ -52,14 +53,15 @@ jobs:
 
 
   # ==========================================================
-  # JOB 2 - TFLINT + TFSEC
+  # JOB 2 - TERRAFORM SECURITY
+  # TFLINT + TFSEC
   # ==========================================================
 
-  security-scan:
-    name: TFLint + tfsec
+  terraform-security:
+    name: Terraform Security
     runs-on: ubuntu-latest
 
-    needs: terraform-init-validate
+    needs: terraform-ci
 
     steps:
 
@@ -97,7 +99,7 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-latest
 
-    needs: security-scan
+    needs: terraform-ci
 
     defaults:
       run:
@@ -111,6 +113,10 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # ------------------------------------------------------
+      # Azure Login
+      # ------------------------------------------------------
+
       - name: Azure Login
         uses: azure/login@v3
         with:
@@ -123,14 +129,30 @@ jobs:
               "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
             }
 
+      # ------------------------------------------------------
+      # Terraform Init
+      # ------------------------------------------------------
+
       - name: Terraform Init
         run: terraform init
+
+      # ------------------------------------------------------
+      # Terraform Plan
+      # ------------------------------------------------------
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
-      - name: Convert Terraform Plan to JSON
+      # ------------------------------------------------------
+      # Convert Plan to JSON
+      # ------------------------------------------------------
+
+      - name: Terraform Plan JSON
         run: terraform show -json tfplan > plan.json
+
+      # ------------------------------------------------------
+      # Upload Plan Artifact
+      # ------------------------------------------------------
 
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
@@ -142,94 +164,75 @@ jobs:
 
 
   # ==========================================================
-  # JOB 4 - PLAN VERIFICATION
+  # JOB 4 - AGENTIC AI SECURITY
+  # PYTHON DEPLOYMENT AGENT
   # ==========================================================
 
-  plan-verification:
-    name: Verify Terraform Plan
+  agentic-ai-security:
+    name: Agentic AI Security
     runs-on: ubuntu-latest
 
-    needs: terraform-plan
-
-    steps:
-
-      - name: Download Terraform Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan
-          path: dev
-
-      - name: Verify Plan Files
-        run: |
-          echo "Checking Terraform plan files..."
-
-          if [ ! -f dev/tfplan ]; then
-            echo "ERROR: tfplan not found"
-            exit 1
-          fi
-
-          if [ ! -f dev/plan.json ]; then
-            echo "ERROR: plan.json not found"
-            exit 1
-          fi
-
-          echo "Terraform plan verified successfully."
-
-          ls -lh dev/tfplan
-          ls -lh dev/plan.json
-
-
-  # ==========================================================
-  # JOB 5 - PYTHON DEPLOYMENT AGENT
-  # ==========================================================
-
-  deployment-agent:
-    name: Python Deployment Agent
-    runs-on: ubuntu-latest
-
-    needs: plan-verification
+    needs:
+      - terraform-security
+      - terraform-plan
 
     permissions:
       contents: read
       actions: read
-      deployments: write
 
     steps:
 
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------
+      # Download Terraform Plan
+      # ------------------------------------------------------
+
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan
           path: dev
 
+      # ------------------------------------------------------
+      # Setup Python
+      # ------------------------------------------------------
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
+      # ------------------------------------------------------
+      # Install Agent Dependencies
+      # ------------------------------------------------------
+
       - name: Install Agent Dependencies
         run: pip install -r agent/requirements.txt
+
+      # ------------------------------------------------------
+      # Run Python Deployment Agent
+      # ------------------------------------------------------
 
       - name: Run Deployment Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          DEPLOYMENT_ENVIRONMENT: production
         run: python agent/agent.py
 
 
   # ==========================================================
-  # JOB 6 - TERRAFORM APPLY
+  # JOB 5 - TERRAFORM APPLY
   # ==========================================================
 
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
 
-    needs: deployment-agent
+    needs: agentic-ai-security
 
     if: github.ref == 'refs/heads/master'
 
@@ -242,11 +245,23 @@ jobs:
 
     steps:
 
+      # ------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------
+      # Terraform Setup
+      # ------------------------------------------------------
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
+      # ------------------------------------------------------
+      # Azure Login
+      # ------------------------------------------------------
 
       - name: Azure Login
         uses: azure/login@v3
@@ -260,14 +275,26 @@ jobs:
               "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
             }
 
+      # ------------------------------------------------------
+      # Terraform Init
+      # ------------------------------------------------------
+
       - name: Terraform Init
         run: terraform init
+
+      # ------------------------------------------------------
+      # Download Exact Terraform Plan
+      # ------------------------------------------------------
 
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan
           path: dev
+
+      # ------------------------------------------------------
+      # Verify Plan
+      # ------------------------------------------------------
 
       - name: Verify Terraform Plan
         run: |
@@ -277,6 +304,10 @@ jobs:
           fi
 
           echo "Exact Terraform plan found."
+
+      # ------------------------------------------------------
+      # Terraform Apply
+      # ------------------------------------------------------
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
