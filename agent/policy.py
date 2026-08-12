@@ -1,48 +1,97 @@
-def evaluate_policy(plan):
+# ==========================================================
+# DEPLOYMENT POLICY ENGINE
+# ==========================================================
 
-    changes = plan.get("resource_changes", [])
+
+# ==========================================================
+# CRITICAL AZURE RESOURCES
+# ==========================================================
+
+CRITICAL_RESOURCES = {
+    "azurerm_key_vault",
+    "azurerm_storage_account",
+    "azurerm_network_security_group",
+    "azurerm_firewall",
+    "azurerm_virtual_network",
+    "azurerm_subnet",
+    "azurerm_kubernetes_cluster",
+    "azurerm_sql_server",
+}
+
+
+# ==========================================================
+# POLICY LIMITS
+# ==========================================================
+
+MAX_TOTAL_CHANGES = 20
+MAX_PRODUCTION_CHANGES = 10
+
+
+# ==========================================================
+# POLICY ENGINE
+# ==========================================================
+
+def evaluate_policy(plan, environment):
+
+    resource_changes = plan.get("resource_changes", [])
 
     create_count = 0
     update_count = 0
     delete_count = 0
 
-    for resource in changes:
+    critical_changes = []
 
-        actions = resource.get("change", {}).get("actions", [])
+    # ======================================================
+    # ANALYZE TERRAFORM RESOURCE CHANGES
+    # ======================================================
+
+    for resource in resource_changes:
+
+        resource_type = resource.get("type", "")
+        resource_name = resource.get("name", "")
+
+        change = resource.get("change", {})
+        actions = change.get("actions", [])
+
+        # --------------------------------------------------
+        # CREATE
+        # --------------------------------------------------
 
         if "create" in actions:
             create_count += 1
 
+        # --------------------------------------------------
+        # UPDATE
+        # --------------------------------------------------
+
         if "update" in actions:
             update_count += 1
+
+        # --------------------------------------------------
+        # DELETE
+        # --------------------------------------------------
 
         if "delete" in actions:
             delete_count += 1
 
-    print("------------------------------------")
-    print("Terraform Plan Analysis")
-    print("------------------------------------")
+        # --------------------------------------------------
+        # CRITICAL RESOURCE
+        # --------------------------------------------------
 
-    print(f"Create : {create_count}")
-    print(f"Update : {update_count}")
-    print(f"Delete : {delete_count}")
+        if resource_type in CRITICAL_RESOURCES:
 
-    # ==========================================
-    # POLICY 1
-    # Don't automatically approve destruction
-    # ==========================================
+            if any(
+                action in actions
+                for action in ["create", "update", "delete"]
+            ):
 
-    if delete_count > 0:
+                critical_changes.append(
+                    f"{resource_type}.{resource_name}"
+                )
 
-        return (
-            "REJECT",
-            f"Terraform plan contains {delete_count} resource deletion(s)."
-        )
-
-    # ==========================================
-    # POLICY 2
-    # Too many changes
-    # ==========================================
+    # ======================================================
+    # TOTAL CHANGES
+    # ======================================================
 
     total_changes = (
         create_count +
@@ -50,24 +99,112 @@ def evaluate_policy(plan):
         delete_count
     )
 
-    if total_changes > 20:
+    # ======================================================
+    # PLAN SUMMARY
+    # ======================================================
+
+    print("")
+    print("====================================")
+    print(" Terraform Deployment Policy")
+    print("====================================")
+
+    print(f"Environment      : {environment}")
+    print(f"Create           : {create_count}")
+    print(f"Update           : {update_count}")
+    print(f"Delete           : {delete_count}")
+    print(f"Total Changes    : {total_changes}")
+    print(f"Critical Changes : {len(critical_changes)}")
+
+    if critical_changes:
+
+        print("")
+        print("Critical Resources:")
+
+        for resource in critical_changes:
+            print(f"  - {resource}")
+
+    # ======================================================
+    # RULE 1
+    # ANY DELETE = REJECT
+    # ======================================================
+
+    if delete_count > 0:
 
         return (
             "REJECT",
-            f"Too many infrastructure changes: {total_changes}."
+            (
+                f"Terraform plan contains "
+                f"{delete_count} resource deletion(s). "
+                f"Automatic deployment is blocked."
+            )
         )
 
-    # ==========================================
-    # POLICY 3
-    # Everything looks safe
-    # ==========================================
+    # ======================================================
+    # RULE 2
+    # TOO MANY CHANGES = REJECT
+    # ======================================================
+
+    if total_changes > MAX_TOTAL_CHANGES:
+
+        return (
+            "REJECT",
+            (
+                f"Terraform plan contains "
+                f"{total_changes} total changes. "
+                f"Maximum allowed is "
+                f"{MAX_TOTAL_CHANGES}."
+            )
+        )
+
+    # ======================================================
+    # RULE 3
+    # PRODUCTION STRICT LIMIT
+    # ======================================================
+
+    if (
+        environment.lower() == "production"
+        and total_changes > MAX_PRODUCTION_CHANGES
+    ):
+
+        return (
+            "REJECT",
+            (
+                f"Production deployment contains "
+                f"{total_changes} changes. "
+                f"Maximum allowed for production is "
+                f"{MAX_PRODUCTION_CHANGES}."
+            )
+        )
+
+    # ======================================================
+    # RULE 4
+    # CRITICAL RESOURCE CHANGE = REJECT
+    # ======================================================
+
+    if critical_changes:
+
+        return (
+            "REJECT",
+            (
+                "Critical infrastructure resource(s) "
+                "detected: "
+                + ", ".join(critical_changes)
+                + ". Automatic deployment is blocked."
+            )
+        )
+
+    # ======================================================
+    # RULE 5
+    # SAFE CHANGE = APPROVE
+    # ======================================================
 
     return (
         "APPROVE",
         (
-            f"Plan approved. "
+            "Terraform plan passed all deployment policies. "
             f"Create={create_count}, "
             f"Update={update_count}, "
-            f"Delete={delete_count}."
+            f"Delete={delete_count}, "
+            f"Total={total_changes}."
         )
     )
